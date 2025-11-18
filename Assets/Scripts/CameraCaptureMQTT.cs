@@ -205,34 +205,36 @@ public class CameraCaptureMQTT : MonoBehaviour
 {
     if (!mqttConnected || client == null || string.IsNullOrEmpty(selectionTopic)) return;
 
-    // 1: d/n  (day/night) - dropdownLight
-    char dayNight = 'd';
+    // 1. Pora dnia: d/n (day/night) – POZYCJA 0
+    // dropdownLight: "Day" / "Night"
+    char dayNight = 'd'; // domyślnie day
     if (dropdownLight != null && dropdownLight.options != null && dropdownLight.options.Count > 0)
     {
         string txt = dropdownLight.options[dropdownLight.value].text;
         dayNight = (txt == "Night") ? 'n' : 'd';
     }
 
-    // 2: d/r  (dry/rain) - dropdownWeather
-    char dryRain = 'd';
+    // 2. Pogoda: d/r (dry/rain) – POZYCJA 1
+    // dropdownWeather: "Dry" / "Rainy"
+    char dryRain = 'd'; // domyślnie dry
     if (dropdownWeather != null && dropdownWeather.options != null && dropdownWeather.options.Count > 0)
     {
         string txt = dropdownWeather.options[dropdownWeather.value].text;
-        dryRain = (txt == "Rainy") ? 'r' : 'd';
+        dryRain = (txt == "Rainy conditions") ? 'r' : 'd';
     }
 
-    // 3: r/o  (rush/off-peak) - dropdownTraffic
-    char rushOff = 'o';
+    // 3. Natężenie ruchu: r/o (rush/off-peak) – POZYCJA 2
+    // dropdownTraffic: "Off-peak hours" / "Rush hours"
+    char rushOff = 'o'; // domyślnie off-peak
     if (dropdownTraffic != null && dropdownTraffic.options != null && dropdownTraffic.options.Count > 0)
     {
         string txt = dropdownTraffic.options[dropdownTraffic.value].text;
         rushOff = (txt == "Rush hours") ? 'r' : 'o';
     }
 
-    // trzyliterowy kod b: [0]=d/n, [1]=d/r, [2]=r/o
+    // UŁOŻENIE WŁAŚCIWEJ KOLEJNOŚCI: [0]=day/night, [1]=dry/rain, [2]=rush/off-peak
     string b = new string(new[] { dayNight, dryRain, rushOff });
 
-    // JSON w formacie uzgodnionym z Arduino: {"b":"ddr"}
     string payload = "{\"b\":\"" + b + "\"}";
 
     try
