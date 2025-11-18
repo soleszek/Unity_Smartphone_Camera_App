@@ -1,0 +1,40 @@
+# Unity standard
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Mm]emoryCaptures/
+UserSettings/
+
+# IDE / projekty
+.vs/
+.idea/
+.vscode/
+*.csproj
+*.sln
+*.user
+*.unityproj
+*.pidb
+*.suo
+*.userprefs
+*.booproj
+*.svd
+
+# Unity auto-generated / cache
+*.unitypackage
+*.meta~
+*.bak
+*.tmp
+
+# System
+.DS_Store
+Thumbs.db
+
+# Build artifacts (Android apk, aab, etc.)
+*.apk
+*.aab
+
+# Burst debug info
+*_BurstDebugInformation_DoNotShip/
