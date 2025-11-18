@@ -201,35 +201,40 @@ public class CameraCaptureMQTT : MonoBehaviour
             captureIndicator.enabled = false;
     }
 
-    // Metoda publikująca kompaktowy JSON {"w":"x","l":"y","t":"z"} zgodnie z mapowaniem
     private void PublishSelection()
+{
+    if (!mqttConnected || client == null || string.IsNullOrEmpty(selectionTopic)) return;
+
+    // 1: d/n  (day/night) - na podstawie dropdownLight
+    char dayNight = 'd';
+    if (dropdownLight != null && dropdownLight.options != null && dropdownLight.options.Count > 0)
+        dayNight = (dropdownLight.options[dropdownLight.value].text == "Night") ? 'n' : 'd';
+
+    // 2: d/r  (dry/rain) - na podstawie dropdownWeather
+    char dryRain = 'd';
+    if (dropdownWeather != null && dropdownWeather.options != null && dropdownWeather.options.Count > 0)
+        dryRain = (dropdownWeather.options[dropdownWeather.value].text == "Rainy") ? 'r' : 'd';
+
+    // 3: r/o  (rush/off-peak) - na podstawie dropdownTraffic
+    char rushOff = 'o';
+    if (dropdownTraffic != null && dropdownTraffic.options != null && dropdownTraffic.options.Count > 0)
+        rushOff = (dropdownTraffic.options[dropdownTraffic.value].text == "Rush hours") ? 'r' : 'o';
+
+    string b = new string(new[] { dayNight, dryRain, rushOff });
+
+    // JSON: {"b":"ddr"}
+    string payload = "{\"b\":\"" + b + "\"}";
+
+    try
     {
-        if (!mqttConnected || client == null || string.IsNullOrEmpty(selectionTopic)) return;
-
-        string w = "d";
-        if (dropdownWeather != null && dropdownWeather.options != null && dropdownWeather.options.Count > 0)
-            w = (dropdownWeather.options[dropdownWeather.value].text == "Rainy") ? "r" : "d";
-
-        string l = "d";
-        if (dropdownLight != null && dropdownLight.options != null && dropdownLight.options.Count > 0)
-            l = (dropdownLight.options[dropdownLight.value].text == "Night") ? "n" : "d";
-
-        string t = "o";
-        if (dropdownTraffic != null && dropdownTraffic.options != null && dropdownTraffic.options.Count > 0)
-            t = (dropdownTraffic.options[dropdownTraffic.value].text == "Rush hours") ? "r" : "o";
-
-        string payload = "{\"w\":\"" + w + "\",\"l\":\"" + l + "\",\"t\":\"" + t + "\"}";
-
-        try
-        {
-            client.Publish(selectionTopic, System.Text.Encoding.UTF8.GetBytes(payload));
-            Debug.Log($"📡 Published selection to {selectionTopic}: {payload}");
-        }
-        catch (Exception ex)
-        {
-            Debug.LogError("❌ Selection publish failed: " + ex.Message);
-        }
+        client.Publish(selectionTopic, System.Text.Encoding.UTF8.GetBytes(payload));
+        Debug.Log($"📡 Published selection to {selectionTopic}: {payload}");
     }
+    catch (Exception ex)
+    {
+        Debug.LogError("❌ Selection publish failed: " + ex.Message);
+    }
+}
 
 #if UNITY_EDITOR
     // Ensure Inspector shows cam/conditions (fix existing serialized instances that still show cam/selection).
