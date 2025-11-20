@@ -144,7 +144,6 @@ public class CameraCaptureMQTT : MonoBehaviour
         }
     }
 
-
     IEnumerator CaptureAndSend()
     {
         if (captureIndicator != null)
@@ -152,17 +151,18 @@ public class CameraCaptureMQTT : MonoBehaviour
 
         yield return new WaitForEndOfFrame();
 
-        Texture2D photo = new Texture2D(webcam.width, webcam.height, TextureFormat.RGB24, false);
-        photo.SetPixels(webcam.GetPixels());
-        photo.Apply();
+        // --- ZMIANA: Obrót zdjęcia ---
+        // Używamy metody pomocniczej RotateTexture zamiast bezpośredniego pobierania pikseli
+        // true oznacza obrót o 90 stopni zgodnie z ruchem wskazówek zegara (Clockwise)
+        Texture2D photo = RotateTexture(webcam, false); 
 
         byte[] bytes = photo.EncodeToJPG();
 
-        string timestampISO = DateTime.UtcNow.ToString("yyyyMMdd_HHmmssfff");
+        string timestampISO = DateTime.Now.ToString("yyyyMMdd_HHmmssfff");
         string fileName = $"{timestampISO}.jpg";
         string path = Path.Combine(Application.persistentDataPath, fileName);
         File.WriteAllBytes(path, bytes);
-        Debug.Log($"📸 Captured: {path}");
+        Debug.Log($"📸 Captured (Rotated): {path}");
 
         long Treal = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         long Tphoto = Treal; 
@@ -201,57 +201,80 @@ public class CameraCaptureMQTT : MonoBehaviour
             captureIndicator.enabled = false;
     }
 
+    // --- NOWA FUNKCJA POMOCNICZA DO OBROTU ---
+    Texture2D RotateTexture(WebCamTexture original, bool clockwise)
+    {
+        Color32[] originalPixels = original.GetPixels32();
+        Color32[] rotatedPixels = new Color32[originalPixels.Length];
+
+        int w = original.width;
+        int h = original.height;
+
+        for (int y = 0; y < h; y++)
+        {
+            for (int x = 0; x < w; x++)
+            {
+                int iRotated;
+                if (clockwise)
+                    iRotated = x * h + (h - y - 1); // 90 stopni w prawo
+                else
+                    iRotated = (w - x - 1) * h + y; // 90 stopni w lewo
+
+                rotatedPixels[iRotated] = originalPixels[y * w + x];
+            }
+        }
+
+        // Tworzymy nową teksturę o zamienionych wymiarach (h, w)
+        Texture2D rotatedTexture = new Texture2D(h, w, TextureFormat.RGB24, false);
+        rotatedTexture.SetPixels32(rotatedPixels);
+        rotatedTexture.Apply();
+
+        return rotatedTexture;
+    }
+
     private void PublishSelection()
-{
-    if (!mqttConnected || client == null || string.IsNullOrEmpty(selectionTopic)) return;
-
-    // 1. Pora dnia: d/n (day/night) – POZYCJA 0
-    // dropdownLight: "Day" / "Night"
-    char dayNight = 'd'; // domyślnie day
-    if (dropdownLight != null && dropdownLight.options != null && dropdownLight.options.Count > 0)
     {
-        string txt = dropdownLight.options[dropdownLight.value].text;
-        dayNight = (txt == "Night") ? 'n' : 'd';
-    }
+        if (!mqttConnected || client == null || string.IsNullOrEmpty(selectionTopic)) return;
 
-    // 2. Pogoda: d/r (dry/rain) – POZYCJA 1
-    // dropdownWeather: "Dry" / "Rainy"
-    char dryRain = 'd'; // domyślnie dry
-    if (dropdownWeather != null && dropdownWeather.options != null && dropdownWeather.options.Count > 0)
-    {
-        string txt = dropdownWeather.options[dropdownWeather.value].text;
-        dryRain = (txt == "Rainy conditions") ? 'r' : 'd';
-    }
+        // 1. Pora dnia: d/n (day/night) – POZYCJA 0
+        char dayNight = 'd'; 
+        if (dropdownLight != null && dropdownLight.options != null && dropdownLight.options.Count > 0)
+        {
+            string txt = dropdownLight.options[dropdownLight.value].text;
+            dayNight = (txt == "Night") ? 'n' : 'd';
+        }
 
-    // 3. Natężenie ruchu: r/o (rush/off-peak) – POZYCJA 2
-    // dropdownTraffic: "Off-peak hours" / "Rush hours"
-    char rushOff = 'o'; // domyślnie off-peak
-    if (dropdownTraffic != null && dropdownTraffic.options != null && dropdownTraffic.options.Count > 0)
-    {
-        string txt = dropdownTraffic.options[dropdownTraffic.value].text;
-        rushOff = (txt == "Rush hours") ? 'r' : 'o';
-    }
+        // 2. Pogoda: d/r (dry/rain) – POZYCJA 1
+        char dryRain = 'd'; 
+        if (dropdownWeather != null && dropdownWeather.options != null && dropdownWeather.options.Count > 0)
+        {
+            string txt = dropdownWeather.options[dropdownWeather.value].text;
+            dryRain = (txt == "Rainy conditions") ? 'r' : 'd';
+        }
 
-    // UŁOŻENIE WŁAŚCIWEJ KOLEJNOŚCI: [0]=day/night, [1]=dry/rain, [2]=rush/off-peak
-    string b = new string(new[] { dayNight, dryRain, rushOff });
+        // 3. Natężenie ruchu: r/o (rush/off-peak) – POZYCJA 2
+        char rushOff = 'o'; 
+        if (dropdownTraffic != null && dropdownTraffic.options != null && dropdownTraffic.options.Count > 0)
+        {
+            string txt = dropdownTraffic.options[dropdownTraffic.value].text;
+            rushOff = (txt == "Rush hours") ? 'r' : 'o';
+        }
 
-    string payload = "{\"b\":\"" + b + "\"}";
+        string b = new string(new[] { dayNight, dryRain, rushOff });
+        string payload = "{\"b\":\"" + b + "\"}";
 
-    try
-    {
-        client.Publish(selectionTopic, System.Text.Encoding.UTF8.GetBytes(payload));
-        Debug.Log($"📡 Published selection to {selectionTopic}: {payload}");
+        try
+        {
+            client.Publish(selectionTopic, System.Text.Encoding.UTF8.GetBytes(payload));
+            Debug.Log($"📡 Published selection to {selectionTopic}: {payload}");
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError("❌ Selection publish failed: " + ex.Message);
+        }
     }
-    catch (Exception ex)
-    {
-        Debug.LogError("❌ Selection publish failed: " + ex.Message);
-    }
-}
 
 #if UNITY_EDITOR
-    // Ensure Inspector shows cam/conditions (fix existing serialized instances that still show cam/selection).
-    // Reset() runs when component is first added or Reset is used in Inspector.
-    // OnValidate() runs in editor after changes/compilation; it corrects old value "cam/selection".
     void Reset()
     {
         selectionTopic = "cam/conditions";
